@@ -2,11 +2,13 @@ import React, { useState, useRef } from 'react';
 import { Upload, FileText, File, AlertCircle, CheckCircle, Clock, Trash2, FileX, Info } from 'lucide-react';
 import { PDFExtractor } from './util/pdfEXtractor';
 import { PlagiarismDetector, DetectionResult } from './util/plagiarismDetector';
+import { analyzeTextWithDeepSeek } from './util/deepSeekApi';
 
 function App() {
   const [results, setResults] = useState<DetectionResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiOutput, setAiOutput] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const extractTextFromFile = async (file: File): Promise<{ text: string; pageCount?: number }> => {
@@ -30,18 +32,24 @@ function App() {
 
     try {
       const { text: content, pageCount } = await extractTextFromFile(file);
-      
       if (content.length < 50) {
         throw new Error('File content is too short for meaningful plagiarism detection.');
+      }
+
+      // Call DeepSeek AI
+      let aiResult: string | null = null;
+      try {
+        aiResult = await analyzeTextWithDeepSeek(content);
+        setAiOutput(aiResult);
+      } catch (aiErr) {
+        setAiOutput('AI analysis failed.');
       }
 
       const similarity = results.length > 0 
         ? Math.max(...results.map(result => PlagiarismDetector.calculateSimilarity(content, result.content)))
         : 0;
-
       const matches = PlagiarismDetector.findDetailedMatches(content, results);
       const wordCount = PlagiarismDetector.getWordCount(content);
-
       const newResult: DetectionResult = {
         id: Date.now().toString(),
         fileName: file.name,
@@ -53,7 +61,6 @@ function App() {
         wordCount,
         pageCount
       };
-
       setResults(prev => [newResult, ...prev]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while processing the file.');
@@ -166,6 +173,19 @@ function App() {
               <div>
                 <h3 className="text-red-800 font-medium">Error</h3>
                 <p className="text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* AI Output */}
+        {aiOutput && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <Info className="w-5 h-5 text-indigo-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h3 className="text-indigo-800 font-medium">AI Analysis</h3>
+                <p className="text-indigo-700 whitespace-pre-line">{aiOutput}</p>
               </div>
             </div>
           </div>

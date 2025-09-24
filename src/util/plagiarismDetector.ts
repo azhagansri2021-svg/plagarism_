@@ -1,3 +1,4 @@
+
 export interface DetectionResult {
   id: string;
   fileName: string;
@@ -106,3 +107,4 @@ export class PlagiarismDetector {
     return text.split(/\s+/).filter(word => word.length > 0).length;
   }
 }
+
